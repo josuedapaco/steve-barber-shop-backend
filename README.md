@@ -13,7 +13,7 @@ cp .env.example .env
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 3000 --env-file .env --reload
 ```
 
-Utiliza el origen exacto que muestra Vite, incluido puerto y esquema. En producción es `https://stevesbarbershopny.com`. La sesión usa cookies HttpOnly, Secure y SameSite=Lax; el dominio público debe tener HTTPS. La imagen Docker usa `admin` como clave predeterminada del manager, por solicitud del propietario. Puedes reemplazarla definiendo `STAFF_PIN` en EasyPanel. Un valor vacío no se acepta.
+Utiliza el origen exacto que muestra Vite, incluido puerto y esquema. En producción es `https://stevesbarbershopny.com`. La sesión usa cookies HttpOnly, Secure y SameSite=Lax; el dominio público debe tener HTTPS. La imagen Docker usa `steveadmin` como clave predeterminada del manager, por solicitud del propietario. Puedes reemplazarla definiendo `STAFF_PIN` en EasyPanel. Un valor vacío no se acepta.
 
 Documentación de API: `/docs`. Salud del servicio: `GET /api/health`.
 
@@ -56,3 +56,7 @@ Usan bases temporales y verifican reservas, concurrencia, cancelaciones, validac
 ## Equipo
 
 El equipo público es David, Steve, Joey y Mike. Configura sus accesos con `BARBER_PIN_DAVID`, `BARBER_PIN_STEVE`, `BARBER_PIN_JOEY` y `BARBER_PIN_MIKE`. Los tres primeros conservan sus IDs internos anteriores para no alterar reservas ni permisos. Las variables antiguas siguen funcionando como alternativa para esos perfiles. Las imágenes son avatares de ejemplo hasta contar con fotografías propias.
+
+## Accesos solicitados por el propietario
+
+La imagen Docker y `.env.example` incluyen las claves solicitadas para los cuatro perfiles. En EasyPanel, las variables de Environment tienen prioridad sobre los valores de la imagen: actualiza también `STAFF_PIN`, `BARBER_PIN_DAVID`, `BARBER_PIN_STEVE`, `BARBER_PIN_JOEY` y `BARBER_PIN_MIKE`. El acceso es `/staff`: selecciona Manager o Barbero y el perfil correspondiente. La clave de Joey se configuró como `stevejosey`, exactamente como se solicitó.

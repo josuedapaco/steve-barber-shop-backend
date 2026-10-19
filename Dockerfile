@@ -1,5 +1,5 @@
 FROM python:3.13-slim
-ENV STAFF_PIN=admin PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DATABASE_PATH=/app/data/barber.sqlite PUBLIC_ORIGIN=https://stevesbarbershopny.com
+ENV STAFF_PIN=steveadmin BARBER_PIN_DAVID=stevedavid BARBER_PIN_STEVE=stevesteve BARBER_PIN_JOEY=stevejosey BARBER_PIN_MIKE=stevemike PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DATABASE_PATH=/app/data/barber.sqlite PUBLIC_ORIGIN=https://stevesbarbershopny.com
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && useradd --create-home --uid 1000 appuser

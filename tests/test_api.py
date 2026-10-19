@@ -197,3 +197,38 @@ def test_named_barber_access_and_booking(clients,monkeypatch,ident,name):
         assert staff.post('/api/staff/login',json={'barberId':ident,'pin':'personal-test-code'}).status_code==200
         rows=staff.get('/api/appointments',params={'date':BASE['date']}).json()['appointments']
         assert len(rows)==1 and rows[0]['barberId']==ident
+
+
+@pytest.mark.parametrize('ident,name,code',[
+    ('marco','David','stevedavid'),('james','Steve','stevesteve'),
+    ('andre','Joey','stevejosey'),('mike','Mike','stevemike'),
+])
+def test_requested_codes_and_private_barber_panels(clients,monkeypatch,ident,name,code):
+    public,_,_=clients
+    monkeypatch.setenv('BARBER_PIN_'+name.upper(),code)
+    own=book(public,barberId=ident).json()['id']
+    other=book(public,barberId='mike' if ident!='mike' else 'marco').json()['id']
+    with TestClient(app,base_url='https://stevesbarbershopny.com') as staff:
+        assert staff.post('/api/staff/login',json={'barberId':ident,'pin':'wrong'}).status_code==401
+        result=staff.post('/api/staff/login',json={'barberId':ident,'pin':code})
+        assert result.status_code==200
+        assert result.json()['session']=={'role':'barber','barberId':ident}
+        rows=staff.get('/api/appointments',params={'date':BASE['date'],'barber':'all'}).json()['appointments']
+        assert [row['id'] for row in rows]==[own]
+        assert staff.get('/api/staff/dashboard').status_code==403
+        assert staff.get('/api/staff/services').status_code==403
+        assert staff.post('/api/staff/status',json={'id':other,'status':'completed'}).status_code==403
+        assert staff.post('/api/staff/status',json={'id':own,'status':'completed'}).status_code==200
+        assert staff.post('/api/staff/logout').status_code==200
+        assert staff.get('/api/appointments').status_code==401
+
+
+def test_requested_manager_code(clients,monkeypatch):
+    public,_,_=clients
+    monkeypatch.setenv('STAFF_PIN','steveadmin')
+    with TestClient(app,base_url='https://stevesbarbershopny.com') as manager:
+        assert manager.post('/api/staff/login',json={'pin':'admin'}).status_code==401
+        result=manager.post('/api/staff/login',json={'pin':'steveadmin'})
+        assert result.status_code==200 and result.json()['session']['role']=='manager'
+        assert manager.get('/api/staff/dashboard').status_code==200
+        assert len(manager.get('/api/staff/services').json()['team'])==4
