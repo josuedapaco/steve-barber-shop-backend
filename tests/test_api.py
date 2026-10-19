@@ -147,3 +147,12 @@ def test_logout(clients):
     _,m,_=clients
     assert m.post('/api/staff/logout').status_code==200
     assert m.get('/api/staff/dashboard').status_code==401
+
+
+def test_admin_manager_code(tmp_path,monkeypatch):
+    monkeypatch.setenv('DATABASE_PATH',str(tmp_path/'admin.sqlite'))
+    monkeypatch.setenv('STAFF_PIN','admin')
+    with TestClient(app,base_url='https://stevesbarbershopny.com') as client:
+        assert client.post('/api/staff/login',json={'pin':'incorrect'}).status_code==401
+        assert client.post('/api/staff/login',json={'pin':'admin'}).status_code==200
+        assert client.get('/api/staff/dashboard').status_code==200

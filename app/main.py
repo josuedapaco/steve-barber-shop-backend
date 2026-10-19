@@ -64,7 +64,7 @@ def migrate():
 
 @asynccontextmanager
 async def lifespan(app):
-    if len(os.environ.get('STAFF_PIN', '')) < 12: raise RuntimeError('STAFF_PIN must contain at least 12 characters')
+    if not os.environ.get('STAFF_PIN', '').strip(): raise RuntimeError('STAFF_PIN must not be empty')
     migrate()
     yield
 

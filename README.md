@@ -8,12 +8,12 @@ API independiente en **Python 3.13 y FastAPI**, con SQLite persistente. Sirve la
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 cp .env.example .env
-# Define STAFF_PIN (mínimo 12 caracteres), los códigos de los barberos,
+# Define STAFF_PIN (clave del manager), los códigos de los barberos,
 # DATABASE_PATH=./data/barber.sqlite y PUBLIC_ORIGIN=http://localhost:5173
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 3000 --env-file .env --reload
 ```
 
-Utiliza el origen exacto que muestra Vite, incluido puerto y esquema. En producción es `https://stevesbarbershopny.com`. La sesión usa cookies HttpOnly, Secure y SameSite=Lax; el dominio público debe tener HTTPS. No hay claves reales en este repositorio.
+Utiliza el origen exacto que muestra Vite, incluido puerto y esquema. En producción es `https://stevesbarbershopny.com`. La sesión usa cookies HttpOnly, Secure y SameSite=Lax; el dominio público debe tener HTTPS. La imagen Docker usa `admin` como clave predeterminada del manager, por solicitud del propietario. Puedes reemplazarla definiendo `STAFF_PIN` en EasyPanel. Un valor vacío no se acepta.
 
 Documentación de API: `/docs`. Salud del servicio: `GET /api/health`.
 
