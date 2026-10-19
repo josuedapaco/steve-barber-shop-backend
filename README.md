@@ -72,3 +72,7 @@ Lunes a sábado: 08:30–19:00. Domingo: 09:00–17:00. Todos en hora de Nueva Y
 ## Clientes persistentes
 
 Cada reserva confirmada crea o actualiza una fila en `customers` por correo normalizado (sin espacios exteriores y en minúsculas), con nombre, teléfono y fechas de creación y actualización. `appointments.customer_id` vincula las citas a esa ficha; los datos originales de cada cita se conservan. El guardado es una sola transacción: una reserva rechazada no crea clientes. La migración importa los contactos de citas existentes y el manager consulta estas fichas en Clientes. Una visita anónima a la web no registra datos de contacto; el registro ocurre al reservar.
+
+## Concurrencia manual del local
+
+`GET /api/busyness` devuelve el porcentaje público y la fecha de actualización. `POST /api/staff/busyness` permite al manager o cualquier barbero autenticado guardar un entero de 0 a 100. El medidor es compartido: el último guardado prevalece. SQLite conserva el porcentaje y quién lo actualizó; la respuesta pública no expone la identidad. 0–33% es poco ocupado, 34–66% moderado y 67–100% muy ocupado. Hasta el primer guardado se muestra sin actualizar. El frontend consulta cada 30 segundos y al volver a la ventana, y muestra la fecha y hora del reporte en Nueva York. Es un reporte manual del equipo; no se calcula con Google ni con reservas.

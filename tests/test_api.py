@@ -380,3 +380,27 @@ def test_availability_marks_reserved_starts_without_customer_details(clients):
     result=slots(public).json()
     assert '10:00' in result['slots'] and '10:30' in result['slots']
     assert not result['unavailable']
+
+
+def test_shared_busyness_editable_by_manager_and_barber_and_persists(clients):
+    public,manager,barber=clients
+    assert public.get('/api/busyness').json()=={'percentage':None,'level':None,'updatedAt':None}
+    assert public.post('/api/staff/busyness',json={'percentage':75}).status_code==401
+    for client,percentage,level in [(manager,0,'low'),(barber,33,'low'),(manager,34,'moderate'),(barber,66,'moderate'),(manager,67,'busy'),(barber,100,'busy')]:
+        result=client.post('/api/staff/busyness',json={'percentage':percentage})
+        assert result.status_code==200 and result.json()['level']==level
+        visible=public.get('/api/busyness').json()
+        assert visible['percentage']==percentage and visible['updatedAt']
+        assert 'updated_by_subject' not in str(visible)
+    migrate()
+    assert public.get('/api/busyness').json()['percentage']==100
+    with database() as db:
+        row=db.execute('SELECT * FROM shop_busyness').fetchone()
+        assert row['updated_by_role']=='barber' and row['updated_by_subject']=='marco'
+
+@pytest.mark.parametrize('percentage',[-1,101,50.5,'50',True,None])
+def test_invalid_busyness_does_not_change_persisted_value(clients,percentage):
+    public,manager,_=clients
+    manager.post('/api/staff/busyness',json={'percentage':50})
+    assert manager.post('/api/staff/busyness',json={'percentage':percentage}).status_code==400
+    assert public.get('/api/busyness').json()['percentage']==50

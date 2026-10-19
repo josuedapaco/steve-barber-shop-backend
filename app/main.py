@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from fastapi import FastAPI, Request, Response, HTTPException, Depends
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, StrictInt
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = json.loads((ROOT / 'app/catalog.json').read_text())
@@ -172,6 +172,26 @@ class Login(Input):
 
 @app.get('/api/health')
 def health(): return {'status': 'ok'}
+def busyness_json(row):
+    if not row: return {'percentage':None,'level':None,'updatedAt':None}
+    percentage=row['percentage']
+    return {'percentage':percentage,'level':'low' if percentage<34 else 'moderate' if percentage<67 else 'busy','updatedAt':row['updated_at']}
+
+@app.get('/api/busyness')
+def public_busyness():
+    with database() as db:
+        return busyness_json(db.execute('SELECT * FROM shop_busyness WHERE id=1').fetchone())
+
+class BusynessUpdate(Input):
+    percentage: StrictInt = Field(ge=0,le=100)
+
+@app.post('/api/staff/busyness')
+def update_busyness(data: BusynessUpdate,user=Depends(session)):
+    with database(True) as db:
+        db.execute('INSERT INTO shop_busyness VALUES (1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET percentage=excluded.percentage,updated_at=excluded.updated_at,updated_by_role=excluded.updated_by_role,updated_by_subject=excluded.updated_by_subject',
+                   (data.percentage,datetime.now(NY).isoformat(),user['role'],user['barberId'] or 'all'))
+        return busyness_json(db.execute('SELECT * FROM shop_busyness WHERE id=1').fetchone())
+
 @app.get('/api/team')
 def public_team():
     with database() as db: return {'team': all_team(db)}
