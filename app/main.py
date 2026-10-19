@@ -242,6 +242,12 @@ def book(data: Booking):
             if overlaps(rows,data.time,service['duration']): fail(409,'That time was just taken. Please choose another.')
             ident = str(uuid.uuid4())
             db.execute('INSERT INTO appointments (id,barber_id,service_id,date,time,duration,customer_name,customer_email,customer_phone,notes,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',(ident,data.barberId,data.serviceId,data.date,data.time,service['duration'],data.name.strip(),data.email.strip(),data.phone.strip(),data.notes.strip(),'confirmed',now()))
+            email=data.email.strip().lower()
+            timestamp=now()
+            db.execute('INSERT INTO customers (id,name,email,phone,created_at,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(email) DO UPDATE SET name=excluded.name,phone=excluded.phone,updated_at=excluded.updated_at',
+                       (str(uuid.uuid4()),data.name.strip(),email,data.phone.strip(),timestamp,timestamp))
+            customer=db.execute('SELECT id FROM customers WHERE email=?',(email,)).fetchone()
+            db.execute('UPDATE appointments SET customer_id=? WHERE id=?',(customer['id'],ident))
             for offset in range(0,service['duration'],15):
                 value = minutes(data.time)+offset
                 db.execute('INSERT INTO occupied_slots VALUES (?,?,?,?)',(data.barberId,data.date,f'{value//60:02}:{value%60:02}',ident))
@@ -311,18 +317,19 @@ def change_access_code(data: ChangeAccessCode, user=Depends(manager)):
 
 @app.get('/api/staff/dashboard')
 def dashboard(user=Depends(manager)):
-    with database() as db:rows=[row_json(r) for r in db.execute('SELECT * FROM appointments ORDER BY date,time')]
+    with database() as db:
+        rows=[row_json(r) for r in db.execute('SELECT * FROM appointments ORDER BY date,time')]
+        customers=[dict(r) for r in db.execute('SELECT id,name,email,phone FROM customers')]
     start=Date.fromisoformat(today());start-=timedelta(days=start.weekday())
     week=[dict(date=(start+timedelta(days=i)).isoformat(),reserved=0,completed=0,cancelled=0) for i in range(7)]
-    clients={}
+    clients={c['id']:dict(**c,visits=[],upcoming=[]) for c in customers}
     for row in rows:
         price=SERVICE_MAP.get(row['serviceId'],{}).get('price',0)
         day=next((d for d in week if d['date']==row['date']),None)
         if day:
             bucket={'confirmed':'reserved','completed':'completed','cancelled':'cancelled'}.get(row['status'])
             if bucket:day[bucket]+=price
-        key=row['customerEmail'].strip().lower()
-        client=clients.setdefault(key,dict(name=row['customerName'],email=row['customerEmail'],phone=row['customerPhone'],visits=[],upcoming=[]))
+        client=clients[row['customerId']]
         if row['status']=='completed':client['visits'].append(row)
         if row['status']=='confirmed' and row['date']>=today():client['upcoming'].append(row)
     for client in clients.values():

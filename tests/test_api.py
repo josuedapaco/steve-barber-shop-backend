@@ -329,3 +329,39 @@ def test_manager_changes_password_persist_and_revoke_sessions(clients,monkeypatc
     for value in ['short',' '*8]:
         assert manager.post('/api/staff/password',json={'staffId':ident,'accessCode':value}).status_code==400
     assert manager.post('/api/staff/password',json={'staffId':'missing','accessCode':'valid-new-code'}).status_code==400
+
+
+def test_customers_saved_once_and_shown_with_latest_contact(clients):
+    public,manager,_=clients
+    first=book(public,email=' CLIENT@Example.com ').json()['id']
+    second=book(public,time='11:00',email='client@example.com',name='Updated Client',phone='2025550199').json()['id']
+    with database() as db:
+        customer=db.execute('SELECT * FROM customers').fetchone()
+        assert db.execute('SELECT count(*) FROM customers').fetchone()[0]==1
+        assert customer['email']=='client@example.com'
+        assert customer['name']=='Updated Client' and customer['phone']=='2025550199'
+        assert all(row['customer_id']==customer['id'] for row in db.execute('SELECT customer_id FROM appointments'))
+    manager.post('/api/staff/status',json={'id':first,'status':'completed'})
+    result=manager.get('/api/staff/dashboard').json()['clients']
+    assert len(result)==1 and result[0]['name']=='Updated Client'
+    assert result[0]['visits'][0]['id']==first and result[0]['upcoming'][0]['id']==second
+    assert book(public,time='11:00',email='rejected@example.com').status_code==409
+    with database() as db: assert db.execute('SELECT count(*) FROM customers').fetchone()[0]==1
+    migrate()
+    with database() as db: assert db.execute('SELECT id FROM customers').fetchone()['id']==customer['id']
+
+
+def test_existing_appointments_backfill_customer_records(clients):
+    public,manager,_=clients
+    first=book(public).json()['id']
+    with database(True) as db:
+        db.execute('DROP INDEX appointments_customer_id')
+        db.execute('ALTER TABLE appointments DROP COLUMN customer_id')
+        db.execute('DROP TABLE customers')
+        db.execute("DELETE FROM node_migrations WHERE name='0006_customers.sql'")
+    migrate()
+    with database() as db:
+        customer=db.execute('SELECT * FROM customers').fetchone()
+        appointment=db.execute('SELECT customer_id FROM appointments WHERE id=?',(first,)).fetchone()
+        assert customer['email']==BASE['email'] and customer['id']==appointment['customer_id']
+    assert manager.get('/api/staff/dashboard').json()['clients'][0]['upcoming'][0]['id']==first
