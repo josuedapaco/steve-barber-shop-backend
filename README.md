@@ -23,7 +23,9 @@ Documentación de API: `/docs`. Salud del servicio: `GET /api/health`.
 docker build -t steve-barber-shop-backend .
 ```
 
-El Dockerfile usa Python 3.13 y Uvicorn, escucha en 3000 y ejecuta como usuario sin privilegios. Conecta un volumen persistente a `/app/data` y configura las variables de `.env.example`. El Compose del repositorio frontend levanta Vue/Nginx, este backend y Caddy con HTTPS.
+El Dockerfile usa Python 3.13 y Uvicorn, escucha en 83 y ejecuta como usuario sin privilegios. Conecta un volumen persistente a `/app/data` y configura las variables de `.env.example`. El Compose del repositorio frontend levanta Vue/Nginx, este backend y Caddy con HTTPS.
+
+En EasyPanel configura el puerto interno del backend en **83**. Para desarrollo local, el comando anterior mantiene el puerto 3000.
 
 No expongas la API directamente al público: Nginx envía `/api` al backend por la red interna. Utiliza una sola instancia sobre SQLite local; no despliegues réplicas con archivos de datos independientes.
 
