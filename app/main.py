@@ -73,7 +73,7 @@ async def lifespan(app):
     migrate()
     yield
 
-app = FastAPI(title='Steve Barber Shop API', version='2.0.0', lifespan=lifespan)
+app = FastAPI(title="Steve's Barbershop API", version='2.0.0', lifespan=lifespan)
 
 @app.exception_handler(HTTPException)
 async def http_error(request, error): return JSONResponse({'error': error.detail}, status_code=error.status_code)
