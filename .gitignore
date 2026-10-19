@@ -5,3 +5,9 @@ dist/
 !.env.example
 data/
 *.sqlite*
+
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env

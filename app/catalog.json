@@ -1,0 +1,48 @@
+{
+  "barbers": [
+    {
+      "id": "marco",
+      "name": "Marco Reyes",
+      "role": "Master Barber",
+      "image": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=720&q=85&fit=crop",
+      "initials": "MR"
+    },
+    {
+      "id": "james",
+      "name": "James Cole",
+      "role": "Senior Barber",
+      "image": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=720&q=85&fit=crop",
+      "initials": "JC"
+    },
+    {
+      "id": "andre",
+      "name": "André Laurent",
+      "role": "Grooming Specialist",
+      "image": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=720&q=85&fit=crop",
+      "initials": "AL"
+    }
+  ],
+  "services": [
+    {
+      "id": "signature",
+      "name": "Signature Haircut",
+      "price": 75,
+      "duration": 60,
+      "detail": "Consultation, precision cut & styling"
+    },
+    {
+      "id": "beard",
+      "name": "Beard Ritual",
+      "price": 50,
+      "duration": 45,
+      "detail": "Shape, hot towel & finishing oil"
+    },
+    {
+      "id": "complete",
+      "name": "The Complete",
+      "price": 115,
+      "duration": 75,
+      "detail": "Signature cut & beard ritual"
+    }
+  ]
+}

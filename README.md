@@ -1,41 +1,48 @@
-# Steve Barber Shop — Backend
+# Steve Barber Shop — FastAPI Backend
 
-Repositorio independiente de la API Node.js 24 + TypeScript + Drizzle + SQLite. Incluye reservas, disponibilidad, altas de barberos, permisos por servicio, acceso del personal y resumen de manager. No contiene código de la interfaz.
+API independiente en **Python 3.13 y FastAPI**, con SQLite persistente. Sirve las reservas, disponibilidad, altas de barberos, permisos, sesiones y resumen del manager. El frontend Vue está en el repositorio `steve-barber-shop-frontend`.
 
-## Ejecutar
+## Desarrollo
 
 ```sh
-npm ci
-npm run build
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
 cp .env.example .env
-# Configura las claves y una ruta DATABASE_PATH escribible y persistente.
-npm start
+# Define STAFF_PIN (mínimo 12 caracteres), los códigos de los barberos,
+# DATABASE_PATH=./data/barber.sqlite y PUBLIC_ORIGIN=http://localhost:5173
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 3000 --env-file .env --reload
 ```
 
-Para ejecutar fuera de Docker cambia `DATABASE_PATH` a una ruta local, por ejemplo `./data/barber.sqlite`. El manager necesita `STAFF_PIN` de al menos 12 caracteres; los perfiles originales usan `BARBER_PIN_MARCO`, `BARBER_PIN_JAMES` y `BARBER_PIN_ANDRE`. Para desarrollo con Vite configura `PUBLIC_ORIGIN=http://localhost:5173` según el origen exacto utilizado en el navegador. En producción usa `https://stevesbarbershopny.com`.
+Utiliza el origen exacto que muestra Vite, incluido puerto y esquema. En producción es `https://stevesbarbershopny.com`. La sesión usa cookies HttpOnly, Secure y SameSite=Lax; el dominio público debe tener HTTPS. No hay claves reales en este repositorio.
 
-`npm test` comprueba reservas, concurrencia, cancelaciones, altas, privacidad y permisos usando SQLite temporal. No modifica datos de producción.
+Documentación de API: `/docs`. Salud del servicio: `GET /api/health`.
 
-## Docker
+## Docker y Hostinger VPS
 
 ```sh
 docker build -t steve-barber-shop-backend .
 ```
 
-El contenedor ejecuta como usuario sin privilegios y escucha en 3000. Requiere variables privadas y un volumen persistente en `/app/data`. No expongas el puerto al público: el proxy del frontend envía las rutas `/api`. El Compose del repositorio frontend integra ambos servicios y Caddy para HTTPS.
+El Dockerfile usa Python 3.13 y Uvicorn, escucha en 3000 y ejecuta como usuario sin privilegios. Conecta un volumen persistente a `/app/data` y configura las variables de `.env.example`. El Compose del repositorio frontend levanta Vue/Nginx, este backend y Caddy con HTTPS.
 
-SQLite debe usarse con una sola instancia backend sobre un disco persistente local. Las migraciones de `drizzle/` se aplican en una transacción y se registran en `node_migrations`. Las reservas y sus franjas ocupadas se guardan en una transacción para evitar solapamientos.
+No expongas la API directamente al público: Nginx envía `/api` al backend por la red interna. Utiliza una sola instancia sobre SQLite local; no despliegues réplicas con archivos de datos independientes.
 
-## Rutas
+## Compatibilidad y datos
 
-- `GET /api/health`: salud del servicio.
-- `GET /api/team`, `GET /api/availability`, `POST /api/appointments`: reservas públicas.
-- `POST /api/staff/login`, `POST /api/staff/logout`: sesión mediante cookie HttpOnly, Secure y SameSite.
-- `GET /api/appointments`, `POST /api/staff/status`: agenda y estados según el rol.
-- `GET /api/staff/dashboard`, `GET/POST /api/staff/services`, `POST /api/staff/team`: administración de manager.
+Las tablas, IDs, permisos, hashes PBKDF2 con sal y el formato de las cookies son compatibles con la versión anterior de Node.js. Se conserva el registro de migraciones `node_migrations`, evitando volver a aplicar migraciones sobre volúmenes existentes. El contenedor mantiene UID 1000 para poder usar el volumen de la versión anterior.
 
-La API rechaza escrituras con un encabezado Origin distinto de PUBLIC_ORIGIN, limita el tamaño de las peticiones y mantiene las sesiones de cada petición aisladas. Los códigos de las altas se guardan como hash PBKDF2 con sal. Los códigos originales y la clave de manager se reciben exclusivamente del entorno.
+Antes de actualizar, detén las escrituras y realiza una copia consistente de SQLite. Conserva el volumen `barber_data`; no uses `docker compose down -v`. No se incluyen citas ni claves en GitHub.
 
-Los datos locales y las claves no se incluyen en GitHub ni en las imágenes. Realiza una copia consistente de SQLite antes de actualizar y conserva el volumen. Para migrar las citas existentes, exporta/importa la base explícitamente con la aplicación detenida; no reemplaces una base de producción sin revisar su contenido.
+Para importar datos a un destino vacío con el backend detenido:
 
-Para importar una base anterior a un destino vacío: `DATABASE_PATH=./data/barber.sqlite node scripts/import-local-data.mjs /ruta/a/base-anterior.sqlite`. Ejecuta la importación con el backend detenido. No modifica el origen y rechaza un destino con datos.
+```sh
+DATABASE_PATH=./data/barber.sqlite .venv/bin/python scripts/import_data.py /ruta/a/base-anterior.sqlite
+```
+
+## Pruebas
+
+```sh
+.venv/bin/python -m pytest -q
+```
+
+Usan bases temporales y verifican reservas, concurrencia, cancelaciones, validación, sesiones, privacidad, permisos, historial y compatibilidad con la versión anterior.
