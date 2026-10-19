@@ -365,3 +365,18 @@ def test_existing_appointments_backfill_customer_records(clients):
         appointment=db.execute('SELECT customer_id FROM appointments WHERE id=?',(first,)).fetchone()
         assert customer['email']==BASE['email'] and customer['id']==appointment['customer_id']
     assert manager.get('/api/staff/dashboard').json()['clients'][0]['upcoming'][0]['id']==first
+
+
+def test_availability_marks_reserved_starts_without_customer_details(clients):
+    public,manager,_=clients
+    ident=book(public,time='10:00',serviceId='complete').json()['id']
+    result=slots(public).json()
+    assert '10:00' not in result['slots'] and '10:30' not in result['slots']
+    assert {'time':'10:00','reason':'reserved'} in result['unavailable']
+    assert {'time':'10:30','reason':'reserved'} in result['unavailable']
+    assert '11:00' in result['slots']
+    assert BASE['email'] not in json.dumps(result)
+    manager.post('/api/staff/status',json={'id':ident,'status':'cancelled'})
+    result=slots(public).json()
+    assert '10:00' in result['slots'] and '10:30' in result['slots']
+    assert not result['unavailable']

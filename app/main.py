@@ -218,7 +218,12 @@ def availability(date: str = '', barber: str = '', service: str = ''):
         authorized(db, barber, service)
         rows = db.execute("SELECT * FROM appointments WHERE date=? AND barber_id=? AND status!='cancelled'", (date,barber)).fetchall()
         duration = SERVICE_MAP[service]['duration']
-        return {'slots': [t for t in booking_times(date,duration) if not past_time(date,t) and not overlaps(rows,t,duration)]}
+        slots, unavailable = [], []
+        for value in booking_times(date,duration):
+            if past_time(date,value): unavailable.append({'time':value,'reason':'past'})
+            elif overlaps(rows,value,duration): unavailable.append({'time':value,'reason':'reserved'})
+            else: slots.append(value)
+        return {'slots':slots,'unavailable':unavailable}
 
 class Booking(Input):
     barberId: StrictStr
