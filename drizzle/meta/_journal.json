@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790641508213,
+      "tag": "0000_slippery_doomsday",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790641584325,
+      "tag": "0001_amusing_xavin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792336929220,
+      "tag": "0002_staff_service_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792337108553,
+      "tag": "0003_allow_cancelled_rebooking",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792338022295,
+      "tag": "0004_dynamic_team_members",
+      "breakpoints": true
+    }
+  ]
+}
