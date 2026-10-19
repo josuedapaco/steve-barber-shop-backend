@@ -2,24 +2,31 @@
   "barbers": [
     {
       "id": "marco",
-      "name": "Marco Reyes",
-      "role": "Master Barber",
-      "image": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=720&q=85&fit=crop",
-      "initials": "MR"
+      "name": "David",
+      "role": "Barber",
+      "image": "/barber-avatar.svg",
+      "initials": "D"
     },
     {
       "id": "james",
-      "name": "James Cole",
-      "role": "Senior Barber",
-      "image": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=720&q=85&fit=crop",
-      "initials": "JC"
+      "name": "Steve",
+      "role": "Barber",
+      "image": "/barber-avatar.svg",
+      "initials": "S"
     },
     {
       "id": "andre",
-      "name": "Andr\u00e9 Laurent",
-      "role": "Grooming Specialist",
-      "image": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=720&q=85&fit=crop",
-      "initials": "AL"
+      "name": "Joey",
+      "role": "Barber",
+      "image": "/barber-avatar.svg",
+      "initials": "J"
+    },
+    {
+      "id": "mike",
+      "name": "Mike",
+      "role": "Barber",
+      "image": "/barber-avatar.svg",
+      "initials": "M"
     }
   ],
   "services": [

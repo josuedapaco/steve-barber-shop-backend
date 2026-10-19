@@ -52,3 +52,7 @@ Usan bases temporales y verifican reservas, concurrencia, cancelaciones, validac
 ## Carta actualizada
 
 `app/catalog.json` contiene los 12 servicios y precios de la carta. Sus duraciones son provisionales: cortes de 30 minutos, retoques de 15 y paquetes de 45–60. Se conservan los IDs `signature`, `beard` y `complete` para mantener las referencias existentes. Las citas anteriores conservan su duración almacenada. Los barberos originales sin configuración específica pueden realizar la carta completa; si el manager ya guardó permisos por persona, se respetan y los nuevos servicios se habilitan desde Equipo y servicios.
+
+## Equipo
+
+El equipo público es David, Steve, Joey y Mike. Configura sus accesos con `BARBER_PIN_DAVID`, `BARBER_PIN_STEVE`, `BARBER_PIN_JOEY` y `BARBER_PIN_MIKE`. Los tres primeros conservan sus IDs internos anteriores para no alterar reservas ni permisos. Las variables antiguas siguen funcionando como alternativa para esos perfiles. Las imágenes son avatares de ejemplo hasta contar con fotografías propias.

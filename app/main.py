@@ -134,7 +134,8 @@ def authorized(db, ident, service):
 
 def key_for(db, role, subject):
     if role == 'manager': return os.environ.get('STAFF_PIN', '')
-    if any(b['id'] == subject for b in BARBERS): return os.environ.get('BARBER_PIN_'+subject.upper(), '')
+    seed = next((b for b in BARBERS if b['id'] == subject), None)
+    if seed: return os.environ.get('BARBER_PIN_'+seed['name'].upper(), '') or os.environ.get('BARBER_PIN_'+subject.upper(), '')
     row = db.execute('SELECT session_secret FROM team_members WHERE id=?', (subject,)).fetchone()
     return row['session_secret'] if row else ''
 

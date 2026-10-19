@@ -28,9 +28,9 @@ def test_public_catalog_and_health(clients):
     c,_,_=clients
     assert c.get('/api/health').json()=={'status':'ok'}
     team=c.get('/api/team').json()['team']
-    assert len(team)==3
+    assert len(team)==4
     assert team[0]['serviceIds']==[service['id'] for service in SERVICES]
-    assert team[0]['role']=='Master Barber'
+    assert [p['name'] for p in team]==['David','Steve','Joey','Mike']
     assert 'pin' not in json.dumps(team).lower()
 
 def test_booking_and_overlap(clients):
@@ -91,9 +91,9 @@ def test_new_barber_lifecycle(clients):
     assert b.post('/api/staff/team',json=person).status_code==403
     result=m.post('/api/staff/team',json=person);assert result.status_code==201
     ident=result.json()['id']
-    assert len(result.json()['team'])==4
+    assert len(result.json()['team'])==5
     assert m.post('/api/staff/team',json={**person,'name':' BARBERO  NUEVO '}).status_code==409
-    assert m.post('/api/staff/team',json={**person,'name':'Marco Reyes'}).status_code==409
+    assert m.post('/api/staff/team',json={**person,'name':'David'}).status_code==409
     with database() as db:
         row=db.execute('SELECT * FROM team_members WHERE id=?',(ident,)).fetchone()
         assert len(row['pin_hash'])==64 and row['pin_hash']!=person['accessCode']
@@ -185,3 +185,15 @@ def test_price_board_catalog(clients):
         with database() as db:
             row=db.execute('SELECT duration FROM appointments WHERE id=?',(result.json()['id'],)).fetchone()
             assert row['duration']==service['duration']
+
+
+@pytest.mark.parametrize('ident,name',[('marco','David'),('james','Steve'),('andre','Joey'),('mike','Mike')])
+def test_named_barber_access_and_booking(clients,monkeypatch,ident,name):
+    c,_,_=clients
+    monkeypatch.setenv('BARBER_PIN_'+name.upper(),'personal-test-code')
+    result=book(c,barberId=ident)
+    assert result.status_code==201
+    with TestClient(app,base_url='https://stevesbarbershopny.com') as staff:
+        assert staff.post('/api/staff/login',json={'barberId':ident,'pin':'personal-test-code'}).status_code==200
+        rows=staff.get('/api/appointments',params={'date':BASE['date']}).json()['appointments']
+        assert len(rows)==1 and rows[0]['barberId']==ident
