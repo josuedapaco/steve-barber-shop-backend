@@ -60,3 +60,7 @@ El equipo público es David, Steve, Joey y Mike. Configura sus accesos con `BARB
 ## Accesos solicitados por el propietario
 
 La imagen Docker y `.env.example` incluyen las claves solicitadas para los cuatro perfiles. En EasyPanel, las variables de Environment tienen prioridad sobre los valores de la imagen: actualiza también `STAFF_PIN`, `BARBER_PIN_DAVID`, `BARBER_PIN_STEVE`, `BARBER_PIN_JOEY` y `BARBER_PIN_MIKE`. El acceso es `/staff`: selecciona Manager o Barbero y el perfil correspondiente. La clave de Joey se configuró como `stevejosey`, exactamente como se solicitó.
+
+## Horarios de reserva
+
+Lunes a sábado: 08:30–19:00. Domingo: 09:00–17:00. Todos en hora de Nueva York. Los turnos se ofrecen cada 15 minutos desde la apertura y el último inicio se calcula como cierre menos la duración del servicio. La API de disponibilidad y el guardado aplican la misma regla. Se excluyen horarios pasados, ocupados y cualquier turno que termine después del cierre.

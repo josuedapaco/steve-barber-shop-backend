@@ -235,8 +235,8 @@ def test_requested_manager_code(clients,monkeypatch):
 
 
 @pytest.mark.parametrize('day,hour,minute,first_slot',[
-    (15,8,0,'08:30'),(15,8,20,'08:30'),(15,8,40,'09:00'),
-    (21,8,45,'09:00'),(21,9,10,'09:30'),
+    (15,8,0,'08:30'),(15,8,20,'08:30'),(15,8,40,'08:45'),
+    (21,8,45,'09:00'),(21,9,10,'09:15'),
 ])
 def test_same_day_availability_starts_at_opening_without_advance_buffer(clients,monkeypatch,day,hour,minute,first_slot):
     import app.main as main
@@ -253,3 +253,34 @@ def test_same_day_availability_starts_at_opening_without_advance_buffer(clients,
     assert book(public,date=selected,time=first_slot).status_code==201
     if hour*60+minute>=main.opening_hours(selected)[0]:
         assert book(public,date=selected,time='09:00' if day==21 else '08:30').status_code==409
+
+
+@pytest.mark.parametrize('day,opening,closing',[
+    ('2099-06-15','08:30',19*60),
+    ('2099-06-20','08:30',19*60),
+    ('2099-06-21','09:00',17*60),
+])
+@pytest.mark.parametrize('service',SERVICES,ids=lambda s:s['id'])
+def test_each_service_can_finish_exactly_at_closing(clients,day,opening,closing,service):
+    public,_,_=clients
+    start=closing-service['duration']
+    expected=f'{start//60:02}:{start%60:02}'
+    result=public.get('/api/availability',params={'date':day,'barber':'marco','service':service['id']})
+    assert result.status_code==200
+    available=result.json()['slots']
+    assert available[0]==opening and available[-1]==expected
+    assert all(int(t[:2])*60+int(t[3:])+service['duration']<=closing for t in available)
+    assert book(public,date=day,time=expected,serviceId=service['id']).status_code==201
+    late=start+15
+    assert book(public,date=day,time=f'{late//60:02}:{late%60:02}',serviceId=service['id']).status_code==400
+
+
+def test_quarter_hour_opening_slots_respect_real_occupied_duration(clients):
+    public,manager,_=clients
+    first=book(public,time='08:30',serviceId='beard')
+    assert first.status_code==201
+    result=slots(public,service='beard').json()['slots']
+    assert '08:30' not in result and '08:45' in result
+    assert book(public,time='08:45',serviceId='beard').status_code==201
+    assert manager.post('/api/staff/status',json={'id':first.json()['id'],'status':'cancelled'}).status_code==200
+    assert '08:30' in slots(public,service='beard').json()['slots']

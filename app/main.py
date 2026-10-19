@@ -23,9 +23,9 @@ NY = ZoneInfo('America/New_York')
 def opening_hours(day):
     return (9*60, 17*60) if Date.fromisoformat(day).weekday() == 6 else (8*60+30, 19*60)
 
-def booking_times(day):
+def booking_times(day, duration):
     opening, closing = opening_hours(day)
-    return [f'{value//60:02}:{value%60:02}' for value in range(opening, closing, 30)]
+    return [f'{value//60:02}:{value%60:02}' for value in range(opening, closing-duration+1, 15)]
 COOKIE = 'atelier_staff'
 
 def today(): return datetime.now(NY).date().isoformat()
@@ -208,7 +208,7 @@ def availability(date: str = '', barber: str = '', service: str = ''):
         authorized(db, barber, service)
         rows = db.execute("SELECT * FROM appointments WHERE date=? AND barber_id=? AND status!='cancelled'", (date,barber)).fetchall()
         duration = SERVICE_MAP[service]['duration']
-        return {'slots': [t for t in booking_times(date) if minutes(t)+duration <= opening_hours(date)[1] and not past_time(date,t) and not overlaps(rows,t,duration)]}
+        return {'slots': [t for t in booking_times(date,duration) if not past_time(date,t) and not overlaps(rows,t,duration)]}
 
 class Booking(Input):
     barberId: StrictStr
@@ -223,7 +223,7 @@ class Booking(Input):
 def book(data: Booking):
     check_schedule(data.date,data.barberId,data.serviceId)
     service = SERVICE_MAP[data.serviceId]
-    if data.time not in booking_times(data.date) or minutes(data.time)+service['duration']>opening_hours(data.date)[1] or len(data.name.strip())<2 or len(data.phone.strip())<7 or not re.fullmatch(r'\S+@\S+\.\S+',data.email.strip()): fail(400,'Please check your reservation details.')
+    if data.time not in booking_times(data.date,service['duration']) or len(data.name.strip())<2 or len(data.phone.strip())<7 or not re.fullmatch(r'\S+@\S+\.\S+',data.email.strip()): fail(400,'Please check your reservation details.')
     if past_time(data.date,data.time): fail(409,'That time is no longer available.')
     try:
         with database(True) as db:
