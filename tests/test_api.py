@@ -232,3 +232,24 @@ def test_requested_manager_code(clients,monkeypatch):
         assert result.status_code==200 and result.json()['session']['role']=='manager'
         assert manager.get('/api/staff/dashboard').status_code==200
         assert len(manager.get('/api/staff/services').json()['team'])==4
+
+
+@pytest.mark.parametrize('day,hour,minute,first_slot',[
+    (15,8,0,'08:30'),(15,8,20,'08:30'),(15,8,40,'09:00'),
+    (21,8,45,'09:00'),(21,9,10,'09:30'),
+])
+def test_same_day_availability_starts_at_opening_without_advance_buffer(clients,monkeypatch,day,hour,minute,first_slot):
+    import app.main as main
+    from datetime import datetime
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls,tz=None):return cls(2099,6,day,hour,minute,tzinfo=main.NY)
+    monkeypatch.setattr(main,'datetime',FixedDateTime)
+    public,_,_=clients
+    selected=f'2099-06-{day:02}'
+    result=public.get('/api/availability',params={'date':selected,'barber':'marco','service':'signature'})
+    assert result.status_code==200
+    assert result.json()['slots'][0]==first_slot
+    assert book(public,date=selected,time=first_slot).status_code==201
+    if hour*60+minute>=main.opening_hours(selected)[0]:
+        assert book(public,date=selected,time='09:00' if day==21 else '08:30').status_code==409

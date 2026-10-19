@@ -197,7 +197,7 @@ def check_schedule(date, barber, service):
     if not valid_date(date) or date < today() or service not in SERVICE_MAP or not barber: fail(400, 'Choose a valid barber, service and date.')
 def past_time(date, time):
     current = datetime.now(NY)
-    return date == current.date().isoformat() and minutes(time) <= current.hour*60+current.minute+30
+    return date == current.date().isoformat() and minutes(time) <= current.hour*60+current.minute
 
 def overlaps(rows, time, duration):
     return any(minutes(time) < minutes(r['time'])+r['duration'] and minutes(r['time']) < minutes(time)+duration for r in rows)
