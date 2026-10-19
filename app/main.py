@@ -25,7 +25,7 @@ def opening_hours(day):
 
 def booking_times(day, duration):
     opening, closing = opening_hours(day)
-    return [f'{value//60:02}:{value%60:02}' for value in range(opening, closing-duration+1, 15)]
+    return [f'{value//60:02}:{value%60:02}' for value in range(opening, closing-duration+1, 30)]
 COOKIE = 'atelier_staff'
 
 def today(): return datetime.now(NY).date().isoformat()

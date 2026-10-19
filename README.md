@@ -63,4 +63,4 @@ La imagen Docker y `.env.example` incluyen las claves solicitadas para los cuatr
 
 ## Horarios de reserva
 
-Lunes a sábado: 08:30–19:00. Domingo: 09:00–17:00. Todos en hora de Nueva York. Los turnos se ofrecen cada 15 minutos desde la apertura y el último inicio se calcula como cierre menos la duración del servicio. La API de disponibilidad y el guardado aplican la misma regla. Se excluyen horarios pasados, ocupados y cualquier turno que termine después del cierre.
+Lunes a sábado: 08:30–19:00. Domingo: 09:00–17:00. Todos en hora de Nueva York. Los turnos se ofrecen cada 30 minutos desde la apertura y el último inicio es el turno de esa secuencia que permite completar la duración del servicio antes del cierre. La API de disponibilidad y el guardado aplican la misma regla. Se excluyen horarios pasados, ocupados y cualquier turno que termine después del cierre.
