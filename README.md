@@ -8,12 +8,12 @@ API independiente en **Python 3.13 y FastAPI**, con SQLite persistente. Sirve la
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 cp .env.example .env
-# Define STAFF_PIN (clave del manager), los códigos de los barberos,
+# Define la ruta de SQLite y el origen público,
 # DATABASE_PATH=./data/barber.sqlite y PUBLIC_ORIGIN=http://localhost:5173
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 3000 --env-file .env --reload
 ```
 
-Utiliza el origen exacto que muestra Vite, incluido puerto y esquema. En producción es `https://stevesbarbershopny.com`. La sesión usa cookies HttpOnly, Secure y SameSite=Lax; el dominio público debe tener HTTPS. La imagen Docker usa `steveadmin` como clave predeterminada del manager, por solicitud del propietario. Puedes reemplazarla definiendo `STAFF_PIN` en EasyPanel. Un valor vacío no se acepta.
+Utiliza el origen exacto que muestra Vite, incluido puerto y esquema. En producción es `https://stevesbarbershopny.com`. La sesión usa cookies HttpOnly, Secure y SameSite=Lax; el dominio público debe tener HTTPS. Las credenciales se guardan en SQLite como hashes PBKDF2 con sal; las variables STAFF_PIN y BARBER_PIN ya no intervienen en el inicio de sesión.
 
 Documentación de API: `/docs`. Salud del servicio: `GET /api/health`.
 
@@ -31,7 +31,7 @@ No expongas la API directamente al público: Nginx envía `/api` al backend por 
 
 ## Compatibilidad y datos
 
-Las tablas, IDs, permisos, hashes PBKDF2 con sal y el formato de las cookies son compatibles con la versión anterior de Node.js. Se conserva el registro de migraciones `node_migrations`, evitando volver a aplicar migraciones sobre volúmenes existentes. El contenedor mantiene UID 1000 para poder usar el volumen de la versión anterior.
+Se conservan las tablas, IDs, permisos y hashes PBKDF2 con sal de la versión anterior. La migración de credenciales requiere iniciar sesión de nuevo. Se conserva el registro de migraciones `node_migrations`, evitando volver a aplicar migraciones sobre volúmenes existentes. El contenedor mantiene UID 1000 para poder usar el volumen de la versión anterior.
 
 Antes de actualizar, detén las escrituras y realiza una copia consistente de SQLite. Conserva el volumen `barber_data`; no uses `docker compose down -v`. No se incluyen citas ni claves en GitHub.
 
@@ -55,11 +55,15 @@ Usan bases temporales y verifican reservas, concurrencia, cancelaciones, validac
 
 ## Equipo
 
-El equipo público es David, Steve, Joey y Mike. Configura sus accesos con `BARBER_PIN_DAVID`, `BARBER_PIN_STEVE`, `BARBER_PIN_JOEY` y `BARBER_PIN_MIKE`. Los tres primeros conservan sus IDs internos anteriores para no alterar reservas ni permisos. Las variables antiguas siguen funcionando como alternativa para esos perfiles. Las imágenes son avatares de ejemplo hasta contar con fotografías propias.
+El equipo público es David, Steve, Joey y Mike. Los tres primeros conservan sus IDs internos anteriores para no alterar reservas ni permisos. Las imágenes son avatares de ejemplo hasta contar con fotografías propias.
 
 ## Accesos solicitados por el propietario
 
-La imagen Docker y `.env.example` incluyen las claves solicitadas para los cuatro perfiles. En EasyPanel, las variables de Environment tienen prioridad sobre los valores de la imagen: actualiza también `STAFF_PIN`, `BARBER_PIN_DAVID`, `BARBER_PIN_STEVE`, `BARBER_PIN_JOEY` y `BARBER_PIN_MIKE`. El acceso es `/staff`: selecciona Manager o Barbero y el perfil correspondiente. La clave de Joey se configuró como `stevejosey`, exactamente como se solicitó.
+La primera migración a `staff_credentials` guarda las claves solicitadas: manager `steveadmin`, David `stevedavid`, Steve `stevesteve`, Joey `stevejosey` y Mike `stevemike`. Se importan las credenciales de barberos agregados anteriormente. Solo se inicializan cuentas que todavía no tienen credenciales; reiniciar o desplegar no restablece contraseñas. Las variables antiguas de EasyPanel no sobrescriben SQLite.
+
+En `/staff`, el manager abre **Equipo y servicios**, escribe una nueva contraseña (8–64 caracteres) en la tarjeta del barbero y pulsa **Cambiar contraseña**. Solo el manager puede hacerlo. El cambio guarda un hash nuevo y revoca las sesiones de ese barbero. La clave anterior deja de funcionar de inmediato. La API nunca devuelve hashes ni contraseñas.
+
+En EasyPanel configura un montaje persistente para `/app/data`, donde está `barber.sqlite`; conservar ese volumen es necesario para mantener claves, reservas y permisos entre despliegues.
 
 ## Horarios de reserva
 

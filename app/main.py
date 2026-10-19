@@ -66,10 +66,16 @@ def migrate():
             for statement in path.read_text().split(';'):
                 if statement.strip(): db.execute(statement)
             db.execute('INSERT INTO node_migrations VALUES (?,?)', (path.name, now()))
+        defaults = {'all':'steveadmin','marco':'stevedavid','james':'stevesteve','andre':'stevejosey','mike':'stevemike'}
+        for subject, pin in defaults.items():
+            role = 'manager' if subject == 'all' else 'barber'
+            if not credential(db, role, subject): save_credential(db, role, subject, pin)
+        for row in db.execute('SELECT * FROM team_members'):
+            if not credential(db, 'barber', row['id']):
+                db.execute('INSERT INTO staff_credentials VALUES (?,?,?,?,?,?)', ('barber',row['id'],row['pin_salt'],row['pin_hash'],row['session_secret'],now()))
 
 @asynccontextmanager
 async def lifespan(app):
-    if not os.environ.get('STAFF_PIN', '').strip(): raise RuntimeError('STAFF_PIN must not be empty')
     migrate()
     yield
 
@@ -132,11 +138,17 @@ def find_person(db, ident):
 def authorized(db, ident, service):
     if service not in find_person(db, ident)['serviceIds']: fail(403, 'This professional is not authorized for this service.')
 
+def credential(db, role, subject):
+    return db.execute('SELECT * FROM staff_credentials WHERE role=? AND subject=?', (role,subject)).fetchone()
+
+def save_credential(db, role, subject, pin):
+    salt = str(uuid.uuid4())
+    hashed = hashlib.pbkdf2_hmac('sha256', pin.encode(), salt.encode(), 100000).hex()
+    db.execute('INSERT INTO staff_credentials VALUES (?,?,?,?,?,?) ON CONFLICT(role,subject) DO UPDATE SET pin_salt=excluded.pin_salt,pin_hash=excluded.pin_hash,session_secret=excluded.session_secret,updated_at=excluded.updated_at',
+               (role,subject,salt,hashed,str(uuid.uuid4()),now()))
+
 def key_for(db, role, subject):
-    if role == 'manager': return os.environ.get('STAFF_PIN', '')
-    seed = next((b for b in BARBERS if b['id'] == subject), None)
-    if seed: return os.environ.get('BARBER_PIN_'+seed['name'].upper(), '') or os.environ.get('BARBER_PIN_'+subject.upper(), '')
-    row = db.execute('SELECT session_secret FROM team_members WHERE id=?', (subject,)).fetchone()
+    row = credential(db, role, subject)
     return row['session_secret'] if row else ''
 
 def digest(payload, key): return hmac.new(key.encode(), payload.encode(), hashlib.sha256).hexdigest()
@@ -168,10 +180,8 @@ def login(data: Login, response: Response):
     role, subject = ('barber', data.barberId) if data.barberId is not None else ('manager', 'all')
     with database() as db:
         key = key_for(db, role, subject)
-        if role == 'barber' and not any(b['id'] == subject for b in BARBERS):
-            row = db.execute('SELECT pin_salt,pin_hash FROM team_members WHERE id=?', (subject,)).fetchone()
-            valid = bool(row) and hmac.compare_digest(hashlib.pbkdf2_hmac('sha256', data.pin.encode(), row['pin_salt'].encode(), 100000).hex(), row['pin_hash'])
-        else: valid = bool(key) and hmac.compare_digest(data.pin.encode(), key.encode())
+        row = credential(db, role, subject)
+        valid = bool(row) and hmac.compare_digest(hashlib.pbkdf2_hmac('sha256', data.pin.encode(), row['pin_salt'].encode(), 100000).hex(), row['pin_hash'])
     if not valid: fail(401, 'Incorrect access code.')
     payload = f'{role}.{subject}.{int(time.time()*1000)+12*60*60*1000}'
     response.set_cookie(COOKIE, payload+'.'+digest(payload, key), max_age=43200, httponly=True, secure=True, samesite='lax')
@@ -283,9 +293,22 @@ def add_person(data:NewPerson,user=Depends(manager)):
             ident,salt=str(uuid.uuid4()),str(uuid.uuid4())
             hashed=hashlib.pbkdf2_hmac('sha256',data.accessCode.encode(),salt.encode(),100000).hex()
             db.execute('INSERT INTO team_members VALUES (?,?,?,?,?,?,?)',(ident,name,name.lower(),salt,hashed,str(uuid.uuid4()),now()))
+            save_credential(db,'barber',ident,data.accessCode)
             save_services(db,ident,data.serviceIds)
             return {'id':ident,'team':all_team(db)}
     except sqlite3.IntegrityError:fail(409,'A professional with this name already exists.')
+class ChangeAccessCode(Input):
+    staffId: StrictStr
+    accessCode: StrictStr = Field(min_length=8,max_length=64)
+
+@app.post('/api/staff/password')
+def change_access_code(data: ChangeAccessCode, user=Depends(manager)):
+    if not data.accessCode.strip(): fail(400,'Enter a valid personal access code.')
+    with database(True) as db:
+        find_person(db,data.staffId)
+        save_credential(db,'barber',data.staffId,data.accessCode)
+    return {'ok':True}
+
 @app.get('/api/staff/dashboard')
 def dashboard(user=Depends(manager)):
     with database() as db:rows=[row_json(r) for r in db.execute('SELECT * FROM appointments ORDER BY date,time')]

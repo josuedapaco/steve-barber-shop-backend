@@ -6,7 +6,7 @@ import sqlite3
 import time
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app, database, migrate, SERVICES
+from app.main import app, database, migrate, SERVICES, save_credential, key_for
 
 BASE={'barberId':'marco','serviceId':'signature','date':'2099-06-15','time':'10:00','name':'Cliente Demo','email':'demo@example.com','phone':'2025550101'}
 @pytest.fixture
@@ -15,6 +15,9 @@ def clients(tmp_path,monkeypatch):
     monkeypatch.setenv('STAFF_PIN','manager-test-code')
     monkeypatch.setenv('BARBER_PIN_MARCO','marco-test-code')
     with TestClient(app,base_url='https://stevesbarbershopny.com') as public:
+        with database(True) as db:
+            save_credential(db,'manager','all','manager-test-code')
+            save_credential(db,'barber','marco','marco-test-code')
         manager=TestClient(app,base_url='https://stevesbarbershopny.com')
         assert manager.post('/api/staff/login',json={'pin':'manager-test-code'}).status_code==200
         barber=TestClient(app,base_url='https://stevesbarbershopny.com')
@@ -133,12 +136,13 @@ def test_request_policy(clients):
     assert c.post('/api/staff/login',content='{',headers={'Content-Type':'application/json'}).status_code==400
     assert c.get('/api/health').headers['cache-control']=='no-store'
 
-def test_compatible_node_session_and_database(clients):
+def test_database_session_signature_and_migration(clients):
     c,_,_=clients
     ident=book(c).json()['id']
     migrate()
     payload=f'manager.all.{int(time.time()*1000)+60000}'
-    token=payload+'.'+hmac.new(b'manager-test-code',payload.encode(),hashlib.sha256).hexdigest()
+    with database() as db: key=key_for(db,'manager','all')
+    token=payload+'.'+hmac.new(key.encode(),payload.encode(),hashlib.sha256).hexdigest()
     r=c.get('/api/appointments',params={'date':BASE['date']},headers={'Cookie':'atelier_staff='+token})
     assert r.status_code==200 and r.json()['appointments'][0]['id']==ident
     assert c.get('/api/appointments',headers={'Cookie':'atelier_staff='+token+'bad'}).status_code==401
@@ -153,6 +157,7 @@ def test_admin_manager_code(tmp_path,monkeypatch):
     monkeypatch.setenv('DATABASE_PATH',str(tmp_path/'admin.sqlite'))
     monkeypatch.setenv('STAFF_PIN','admin')
     with TestClient(app,base_url='https://stevesbarbershopny.com') as client:
+        with database(True) as db: save_credential(db,'manager','all','admin')
         assert client.post('/api/staff/login',json={'pin':'incorrect'}).status_code==401
         assert client.post('/api/staff/login',json={'pin':'admin'}).status_code==200
         assert client.get('/api/staff/dashboard').status_code==200
@@ -190,7 +195,7 @@ def test_price_board_catalog(clients):
 @pytest.mark.parametrize('ident,name',[('marco','David'),('james','Steve'),('andre','Joey'),('mike','Mike')])
 def test_named_barber_access_and_booking(clients,monkeypatch,ident,name):
     c,_,_=clients
-    monkeypatch.setenv('BARBER_PIN_'+name.upper(),'personal-test-code')
+    with database(True) as db: save_credential(db,'barber',ident,'personal-test-code')
     result=book(c,barberId=ident)
     assert result.status_code==201
     with TestClient(app,base_url='https://stevesbarbershopny.com') as staff:
@@ -205,7 +210,7 @@ def test_named_barber_access_and_booking(clients,monkeypatch,ident,name):
 ])
 def test_requested_codes_and_private_barber_panels(clients,monkeypatch,ident,name,code):
     public,_,_=clients
-    monkeypatch.setenv('BARBER_PIN_'+name.upper(),code)
+    with database(True) as db: save_credential(db,'barber',ident,code)
     own=book(public,barberId=ident).json()['id']
     other=book(public,barberId='mike' if ident!='mike' else 'marco').json()['id']
     with TestClient(app,base_url='https://stevesbarbershopny.com') as staff:
@@ -225,7 +230,7 @@ def test_requested_codes_and_private_barber_panels(clients,monkeypatch,ident,nam
 
 def test_requested_manager_code(clients,monkeypatch):
     public,_,_=clients
-    monkeypatch.setenv('STAFF_PIN','steveadmin')
+    with database(True) as db: save_credential(db,'manager','all','steveadmin')
     with TestClient(app,base_url='https://stevesbarbershopny.com') as manager:
         assert manager.post('/api/staff/login',json={'pin':'admin'}).status_code==401
         result=manager.post('/api/staff/login',json={'pin':'steveadmin'})
@@ -287,3 +292,40 @@ def test_half_hour_opening_slots_respect_real_occupied_duration(clients):
     assert book(public,time='09:00',serviceId='beard').status_code==201
     assert manager.post('/api/staff/status',json={'id':first.json()['id'],'status':'cancelled'}).status_code==200
     assert '08:30' in slots(public,service='beard').json()['slots']
+
+
+def test_requested_defaults_persist_without_environment(tmp_path,monkeypatch):
+    monkeypatch.setenv('DATABASE_PATH',str(tmp_path/'defaults.sqlite'))
+    monkeypatch.setenv('STAFF_PIN','obsolete-env-code')
+    with TestClient(app,base_url='https://stevesbarbershopny.com') as client:
+        for ident,pin in [('all','steveadmin'),('marco','stevedavid'),('james','stevesteve'),('andre','stevejosey'),('mike','stevemike')]:
+            payload={'pin':pin,**({'barberId':ident} if ident!='all' else {})}
+            assert client.post('/api/staff/login',json=payload).status_code==200
+        with database() as db:
+            rows=db.execute('SELECT * FROM staff_credentials').fetchall()
+            assert len(rows)==5
+            assert all(len(row['pin_hash'])==64 for row in rows)
+            assert 'stevedavid' not in str([dict(row) for row in rows])
+
+@pytest.mark.parametrize('ident',['marco','james','andre','mike','new'])
+def test_manager_changes_password_persist_and_revoke_sessions(clients,monkeypatch,ident):
+    public,manager,_=clients
+    old={'marco':'marco-test-code','james':'stevesteve','andre':'stevejosey','mike':'stevemike','new':'new-barber-code'}[ident]
+    if ident=='new':
+        ident=manager.post('/api/staff/team',json={'name':'New barber','serviceIds':['beard'],'accessCode':old}).json()['id']
+    with TestClient(app,base_url='https://stevesbarbershopny.com') as staff:
+        assert staff.post('/api/staff/login',json={'barberId':ident,'pin':old}).status_code==200
+        change={'staffId':ident,'accessCode':'replacement-code'}
+        assert public.post('/api/staff/password',json=change).status_code==401
+        assert staff.post('/api/staff/password',json=change).status_code==403
+        assert manager.post('/api/staff/password',json=change).status_code==200
+        assert staff.get('/api/appointments').status_code==401
+        monkeypatch.setenv('BARBER_PIN_DAVID',old)
+        migrate()
+        assert staff.post('/api/staff/login',json={'barberId':ident,'pin':old}).status_code==401
+        assert staff.post('/api/staff/login',json={'barberId':ident,'pin':'replacement-code'}).status_code==200
+        assert staff.get('/api/appointments').status_code==200
+        assert 'replacement-code' not in public.get('/api/team').text
+    for value in ['short',' '*8]:
+        assert manager.post('/api/staff/password',json={'staffId':ident,'accessCode':value}).status_code==400
+    assert manager.post('/api/staff/password',json={'staffId':'missing','accessCode':'valid-new-code'}).status_code==400
