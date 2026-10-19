@@ -6,7 +6,7 @@ import sqlite3
 import time
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app, database, migrate
+from app.main import app, database, migrate, SERVICES
 
 BASE={'barberId':'marco','serviceId':'signature','date':'2099-06-15','time':'10:00','name':'Cliente Demo','email':'demo@example.com','phone':'2025550101'}
 @pytest.fixture
@@ -29,7 +29,7 @@ def test_public_catalog_and_health(clients):
     assert c.get('/api/health').json()=={'status':'ok'}
     team=c.get('/api/team').json()['team']
     assert len(team)==3
-    assert team[0]['serviceIds']==['signature','beard','complete']
+    assert team[0]['serviceIds']==[service['id'] for service in SERVICES]
     assert team[0]['role']=='Master Barber'
     assert 'pin' not in json.dumps(team).lower()
 
@@ -38,20 +38,20 @@ def test_booking_and_overlap(clients):
     assert '10:00' in slots(c).json()['slots']
     r=book(c);assert r.status_code==201
     assert book(c).status_code==409
-    assert book(c,time='10:30').status_code==409
+    assert book(c,time='10:30').status_code==201
     assert book(c,time='11:00').status_code==201
     assert book(c,barberId='james').status_code==201
     assert '10:00' not in slots(c).json()['slots']
     rows=m.get('/api/appointments',params={'date':BASE['date']}).json()['appointments']
-    assert len(rows)==3 and rows[0]['customerName']==BASE['name']
-    with database() as db:assert db.execute('SELECT count(*) FROM occupied_slots WHERE appointment_id=?',(r.json()['id'],)).fetchone()[0]==4
-@pytest.mark.parametrize('changes',[{'email':'invalid'},{'name':''},{'name':' '},{'phone':'123'},{'phone':'       '},{'date':'2000-01-01'},{'date':'2099-02-31'},{'date':'not-date'},{'barberId':'missing'},{'serviceId':'missing'},{'time':'19:00'},{'time':'18:30'},{'notes':'x'*501}])
+    assert len(rows)==4 and rows[0]['customerName']==BASE['name']
+    with database() as db:assert db.execute('SELECT count(*) FROM occupied_slots WHERE appointment_id=?',(r.json()['id'],)).fetchone()[0]==2
+@pytest.mark.parametrize('changes',[{'email':'invalid'},{'name':''},{'name':' '},{'phone':'123'},{'phone':'       '},{'date':'2000-01-01'},{'date':'2099-02-31'},{'date':'not-date'},{'barberId':'missing'},{'serviceId':'missing'},{'time':'19:00'},{'time':'19:30'},{'notes':'x'*501}])
 def test_invalid_booking(clients,changes):assert book(clients[0],**changes).status_code==400
 
 def test_duration_and_concurrency(clients):
     c,_,_=clients
     assert book(c,time='13:00',serviceId='complete').status_code==201
-    assert book(c,time='14:00',serviceId='beard').status_code==409
+    assert book(c,time='13:30',serviceId='beard').status_code==409
     assert book(c,time='15:00',serviceId='beard').status_code==201
     with ThreadPoolExecutor(2) as pool:results=list(pool.map(lambda _:book(c,time='16:00').status_code,range(2)))
     assert sorted(results)==[201,409]
@@ -159,9 +159,9 @@ def test_admin_manager_code(tmp_path,monkeypatch):
 
 
 @pytest.mark.parametrize('day,opening,last_start,too_early,too_late',[
-    ('2099-06-15','08:30','18:00','08:00','18:30'),
-    ('2099-06-20','08:30','18:00','08:00','18:30'),
-    ('2099-06-21','09:00','16:00','08:30','16:30'),
+    ('2099-06-15','08:30','18:30','08:00','19:00'),
+    ('2099-06-20','08:30','18:30','08:00','19:00'),
+    ('2099-06-21','09:00','16:30','08:30','17:00'),
 ])
 def test_weekday_and_sunday_hours(clients,day,opening,last_start,too_early,too_late):
     c,_,_=clients
@@ -173,3 +173,15 @@ def test_weekday_and_sunday_hours(clients,day,opening,last_start,too_early,too_l
     assert book(c,date=day,time=too_late).status_code==400
     assert book(c,date=day,time=opening).status_code==201
     assert book(c,date=day,time=last_start).status_code==201
+
+
+def test_price_board_catalog(clients):
+    assert len(SERVICES)==12
+    assert [s['price'] for s in SERVICES]==[25,40,31,25,15,15,22,6,30,20,45,65]
+    c,_,_=clients
+    for index,service in enumerate(SERVICES):
+        result=book(c,serviceId=service['id'],date=f'2099-07-{index+10:02}')
+        assert result.status_code==201
+        with database() as db:
+            row=db.execute('SELECT duration FROM appointments WHERE id=?',(result.json()['id'],)).fetchone()
+            assert row['duration']==service['duration']

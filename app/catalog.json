@@ -16,7 +16,7 @@
     },
     {
       "id": "andre",
-      "name": "André Laurent",
+      "name": "Andr\u00e9 Laurent",
       "role": "Grooming Specialist",
       "image": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=720&q=85&fit=crop",
       "initials": "AL"
@@ -25,24 +25,87 @@
   "services": [
     {
       "id": "signature",
-      "name": "Signature Haircut",
-      "price": 75,
-      "duration": 60,
-      "detail": "Consultation, precision cut & styling"
-    },
-    {
-      "id": "beard",
-      "name": "Beard Ritual",
-      "price": 50,
-      "duration": 45,
-      "detail": "Shape, hot towel & finishing oil"
+      "name": "Hair Cut",
+      "price": 25,
+      "duration": 30,
+      "detail": "Classic haircut and styling"
     },
     {
       "id": "complete",
-      "name": "The Complete",
-      "price": 115,
-      "duration": 75,
-      "detail": "Signature cut & beard ritual"
+      "name": "Haircut & Shape Up the Beard w/ Razor",
+      "price": 40,
+      "duration": 45,
+      "detail": "Haircut and beard shape up with a razor"
+    },
+    {
+      "id": "cut-wash-blowdry",
+      "name": "Cut, Wash & Blowdry",
+      "price": 31,
+      "duration": 45,
+      "detail": "Haircut, wash and blowdry"
+    },
+    {
+      "id": "hot-towel-shave",
+      "name": "Hot Towel Shave w/ Massage",
+      "price": 25,
+      "duration": 30,
+      "detail": "Hot towel shave and massage"
+    },
+    {
+      "id": "shape-up",
+      "name": "Shape Up",
+      "price": 15,
+      "duration": 15,
+      "detail": "Clean up the hairline and edges"
+    },
+    {
+      "id": "beard",
+      "name": "Beard Trim",
+      "price": 15,
+      "duration": 15,
+      "detail": "Trim and shape the beard"
+    },
+    {
+      "id": "children",
+      "name": "Children 12 years & younger",
+      "price": 22,
+      "duration": 30,
+      "detail": "Haircut for children aged 12 and under"
+    },
+    {
+      "id": "eyebrows",
+      "name": "Eyebrows w/ Razor",
+      "price": 6,
+      "duration": 15,
+      "detail": "Eyebrow shape up with a razor"
+    },
+    {
+      "id": "special-shape-up",
+      "name": "Special Shape Up, Beard Trim & Eyebrows",
+      "price": 30,
+      "duration": 30,
+      "detail": "Shape up, beard trim and eyebrows"
+    },
+    {
+      "id": "senior",
+      "name": "Senior Citizen Special",
+      "price": 20,
+      "duration": 30,
+      "detail": "Senior citizen haircut special"
+    },
+    {
+      "id": "haircut-beard-eyebrows",
+      "name": "Haircut, Beard Shape & Eyebrows w/ Razor",
+      "price": 45,
+      "duration": 45,
+      "detail": "Haircut, beard shape and eyebrows with a razor"
+    },
+    {
+      "id": "royal-special",
+      "name": "Special: Haircut, Royal Shave and Black Mask",
+      "price": 65,
+      "duration": 60,
+      "detail": "Haircut, royal shave and black mask"
     }
   ]
 }
