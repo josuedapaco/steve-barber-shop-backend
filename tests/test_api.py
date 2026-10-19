@@ -45,7 +45,7 @@ def test_booking_and_overlap(clients):
     rows=m.get('/api/appointments',params={'date':BASE['date']}).json()['appointments']
     assert len(rows)==3 and rows[0]['customerName']==BASE['name']
     with database() as db:assert db.execute('SELECT count(*) FROM occupied_slots WHERE appointment_id=?',(r.json()['id'],)).fetchone()[0]==4
-@pytest.mark.parametrize('changes',[{'email':'invalid'},{'name':''},{'name':' '},{'phone':'123'},{'phone':'       '},{'date':'2000-01-01'},{'date':'2099-02-31'},{'date':'not-date'},{'barberId':'missing'},{'serviceId':'missing'},{'time':'19:00'},{'time':'18:00'},{'notes':'x'*501}])
+@pytest.mark.parametrize('changes',[{'email':'invalid'},{'name':''},{'name':' '},{'phone':'123'},{'phone':'       '},{'date':'2000-01-01'},{'date':'2099-02-31'},{'date':'not-date'},{'barberId':'missing'},{'serviceId':'missing'},{'time':'19:00'},{'time':'18:30'},{'notes':'x'*501}])
 def test_invalid_booking(clients,changes):assert book(clients[0],**changes).status_code==400
 
 def test_duration_and_concurrency(clients):
@@ -156,3 +156,20 @@ def test_admin_manager_code(tmp_path,monkeypatch):
         assert client.post('/api/staff/login',json={'pin':'incorrect'}).status_code==401
         assert client.post('/api/staff/login',json={'pin':'admin'}).status_code==200
         assert client.get('/api/staff/dashboard').status_code==200
+
+
+@pytest.mark.parametrize('day,opening,last_start,too_early,too_late',[
+    ('2099-06-15','08:30','18:00','08:00','18:30'),
+    ('2099-06-20','08:30','18:00','08:00','18:30'),
+    ('2099-06-21','09:00','16:00','08:30','16:30'),
+])
+def test_weekday_and_sunday_hours(clients,day,opening,last_start,too_early,too_late):
+    c,_,_=clients
+    result=c.get('/api/availability',params={'date':day,'barber':'marco','service':'signature'})
+    assert result.status_code==200
+    available=result.json()['slots']
+    assert available[0]==opening and available[-1]==last_start
+    assert book(c,date=day,time=too_early).status_code==400
+    assert book(c,date=day,time=too_late).status_code==400
+    assert book(c,date=day,time=opening).status_code==201
+    assert book(c,date=day,time=last_start).status_code==201
